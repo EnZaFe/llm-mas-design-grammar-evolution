@@ -6,6 +6,8 @@ Companion repository for the paper:
 
 This repository contains the research code, grammar files, data, and visualisations used in the study.
 
+**Important:** The code and data folder will be uploaded in the future.
+
 **Important:** this is a research prototype. The code was developed for the paper, not for general reuse. It is not organised for external users, lacks comprehensive comments, and may have compatibility issues.
 
 ## Contents
