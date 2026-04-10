@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generation 009 - Workflow Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
+        .header p { font-size: 1.2em; opacity: 0.9; }
+        .controls {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .control-group { display: flex; align-items: center; gap: 10px; }
+        .control-group label { font-weight: 600; color: #495057; }
+        select, button {
+            padding: 10px 15px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        select:hover, button:hover {
+            border-color: #667eea;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            font-weight: 600;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .visualization { position: relative; background: #ffffff; }
+        #tree-container { width: 100%; height: 800px; overflow: hidden; position: relative; }
+        
+        .node circle {
+            stroke-width: 3px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .node:hover circle { stroke-width: 5px; filter: brightness(1.1); }
+        .node text {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            font-weight: 600;
+            pointer-events: none;
+        }
+        .link {
+            fill: none;
+            stroke: #6b7280;
+            stroke-width: 2px;
+            stroke-opacity: 0.6;
+            transition: all 0.3s ease;
+        }
+        .link:hover { stroke-width: 3px; stroke-opacity: 1; }
+        
+        .terminal-node {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .terminal-node:hover {
+            filter: brightness(1.1);
+        }
+        .terminal-node rect, .terminal-node polygon {
+            stroke: #333;
+            stroke-width: 2px;
+        }
+        .terminal-node text {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 12px;
+            font-weight: 600;
+            fill: #000;
+            pointer-events: none;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+        .terminal-edge {
+            fill: none;
+            stroke: #6b7280;
+            stroke-width: 2px;
+            marker-end: url(#arrowhead);
+        }
+        .terminal-edge.dashed {
+            stroke-dasharray: 5, 5;
+            stroke: #9ca3af;
+        }
+        .terminal-edge-label {
+            font-size: 11px;
+            fill: #4b5563;
+            font-weight: 600;
+            pointer-events: none;
+        }
+        
+        .legend {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-width: 250px;
+        }
+        .legend h3 {
+            margin-bottom: 15px;
+            color: #495057;
+            font-size: 16px;
+            border-bottom: 2px solid #e9ecef;
+            padding-bottom: 10px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: #495057;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid #333;
+        }
+        .info-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            max-width: 450px;
+        }
+        .info-panel h3 { margin-bottom: 10px; color: #667eea; font-size: 18px; }
+        .info-panel p { margin: 5px 0; color: #495057; font-size: 14px; }
+        .info-panel .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e9ecef;
+        }
+        .metric-item {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .metric-value {
+            font-weight: 600;
+            color: #495057;
+        }
+        .tooltip {
+            position: absolute;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            border-radius: 5px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 12px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧬 Generation 009 Workflow Evolution</h1>
+            <p>Interactive Genetic Programming Visualization</p>
+        </div>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label for="view-mode">View Mode:</label>
+                <select id="view-mode">
+                    <option value="tree">Tree View</option>
+                    <option value="terminal">Flowchart View</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="individual-select">Select Individual:</label>
+                <select id="individual-select">
+                    <option value="0">ind_ind_37 (✓3/6 | S:6 | T_c:115.12s | T_e:83.77s)</option><option value="1">ind_ind_35 (✓3/6 | S:6 | T_c:115.62s | T_e:83.63s)</option><option value="2">ind_ind_42 (✓3/6 | S:6 | T_c:119.67s | T_e:83.68s)</option><option value="3">ind_ind_21 (✓3/6 | S:6 | T_c:122.29s | T_e:83.72s)</option><option value="4">ind_ind_36 (✓3/6 | S:6 | T_c:244.99s | T_e:83.52s)</option><option value="5">ind_ind_38 (✓3/6 | S:6 | T_c:246.55s | T_e:83.72s)</option><option value="6">ind_ind_41 (✓3/6 | S:6 | T_c:247.26s | T_e:83.67s)</option><option value="7">ind_ind_39 (✓3/6 | S:6 | T_c:252.44s | T_e:83.79s)</option><option value="8">ind_ind_40 (✓3/6 | S:6 | T_c:255.56s | T_e:83.61s)</option><option value="9">ind_ind_22 (✓3/6 | S:6 | T_c:257.60s | T_e:83.73s)</option>
+                </select>
+            </div>
+            
+            <div class="control-group" id="layout-control">
+                <label for="layout-select">Layout:</label>
+                <select id="layout-select">
+                    <option value="tree">Tree</option>
+                    <option value="cluster">Cluster</option>
+                    <option value="radial">Radial</option>
+                </select>
+            </div>
+            
+            <button id="expand-all">Expand All</button>
+            <button id="collapse-all">Collapse All</button>
+            <button id="reset-zoom">Reset View</button>
+        </div>
+        
+        <div class="visualization">
+            <div id="tree-container"></div>
+            
+            <div class="legend">
+                <h3>Node Types</h3>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #4ade80;"></div>
+                    <span>Agent</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #60a5fa;"></div>
+                    <span>Compiler</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #fbbf24;"></div>
+                    <span>Condition</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #a78bfa;"></div>
+                    <span>Control</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #f87171;"></div>
+                    <span>Keyword</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #d1d5db;"></div>
+                    <span>Other</span>
+                </div>
+                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e9ecef; font-size: 12px; color: #6b7280;">
+                    💡 Click nodes to expand/collapse<br>
+                    🖱️ Drag to pan, scroll to zoom
+                </div>
+            </div>
+            
+            <div class="info-panel">
+                <h3 id="current-individual">Individual</h3>
+                <div class="metrics-grid" id="metrics-grid">
+                    <div class="metric-item">
+                        <span>Correctness:</span>
+                        <span class="metric-value" id="metric-correct">-</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Execution Valid:</span>
+                        <span class="metric-value" id="metric-valid">-</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Syntax Valid:</span>
+                        <span class="metric-value" id="metric-syntax">-</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Time Creation:</span>
+                        <span class="metric-value" id="metric-time-create">-</span>
+                    </div>
+                    <div class="metric-item">
+                        <span>Time Execution:</span>
+                        <span class="metric-value" id="metric-time-exec">-</span>
+                    </div>
+                </div>
+                <p id="node-count" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e9ecef;">Nodes: 0</p>
+                <p id="tree-depth">Depth: 0</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="tooltip" id="tooltip"></div>
+    
+    <script>
+        const individualsData = [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "CODER_ROBUST", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "ARCHITECT_COMPREHENSIVE", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "CODER_EDUCATIONAL", "type": "default"}]}]}]}]}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "REVIEWER_MAINTAINABILITY", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_REFACTOR", "type": "default"}]}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "COMPLEX_NODE", "type": "default", "children": [{"name": "SIMPLE_CONDITIONAL", "type": "default", "children": [{"name": "IF", "type": "control"}, {"name": "CONDITION", "type": "default", "children": [{"name": "SYNTAX_VALID", "type": "default"}]}, {"name": "THEN", "type": "keyword"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "ANALYST_ARCHITECTURAL", "type": "default"}]}]}]}, {"name": "ELSE", "type": "keyword"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "ANALYST_ARCHITECTURAL", "type": "default"}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}], "individual_name": "ind_ind_37", "fitness": 3.0, "metrics": {"correct_answers": 3, "execution_valids": 6, "syntax_valids": 6, "creating_times": 115.1214017868042, "program_times": 83.77199530601501}}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "CODER_ROBUST", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_REFACTOR", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_REFACTOR", "type": "default"}]}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "COMPLEX_NODE", "type": "default", "children": [{"name": "SIMPLE_CONDITIONAL", "type": "default", "children": [{"name": "IF", "type": "control"}, {"name": "CONDITION", "type": "default", "children": [{"name": "SYNTAX_VALID", "type": "default"}]}, {"name": "THEN", "type": "keyword"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_DEFENSIVE", "type": "default"}]}]}]}, {"name": "ELSE", "type": "keyword"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "ANALYST_ARCHITECTURAL", "type": "default"}]}]}]}]}]}]}]}]}]}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "REVIEWER_MAINTAINABILITY", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_REFACTOR", "type": "default"}]}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "COMPLEX_NODE", "type": "default", "children": [{"name": "SIMPLE_CONDITIONAL", "type": "default", "children": [{"name": "IF", "type": "control"}, {"name": "CONDITION", "type": "default", "children": [{"name": "SYNTAX_VALID", "type": "default"}]}, {"name": "THEN", "type": "keyword"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_DEFENSIVE", "type": "default"}]}]}]}, {"name": "ELSE", "type": "keyword"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "ANALYST_ARCHITECTURAL", "type": "default"}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}], "individual_name": "ind_ind_35", "fitness": 3.0, "metrics": {"correct_answers": 3, "execution_valids": 6, "syntax_valids": 6, "creating_times": 115.61596918106079, "program_times": 83.62682223320007}}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "CODER_ROBUST", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_REFACTOR", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_REFACTOR", "type": "default"}]}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "COMPLEX_NODE", "type": "default", "children": [{"name": "SIMPLE_CONDITIONAL", "type": "default", "children": [{"name": "IF", "type": "control"}, {"name": "CONDITION", "type": "default", "children": [{"name": "SYNTAX_VALID", "type": "default"}]}, {"name": "THEN", "type": "keyword"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_DEFENSIVE", "type": "default"}]}]}]}, {"name": "ELSE", "type": "keyword"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "ANALYST_ARCHITECTURAL", "type": "default"}]}]}]}]}]}]}]}]}]}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "REVIEWER_MAINTAINABILITY", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_REFACTOR", "type": "default"}]}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "COMPLEX_NODE", "type": "default", "children": [{"name": "SIMPLE_CONDITIONAL", "type": "default", "children": [{"name": "IF", "type": "control"}, {"name": "CONDITION", "type": "default", "children": [{"name": "SYNTAX_VALID", "type": "default"}]}, {"name": "THEN", "type": "keyword"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_DEFENSIVE", "type": "default"}]}]}]}, {"name": "ELSE", "type": "keyword"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "ANALYST_ARCHITECTURAL", "type": "default"}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}], "individual_name": "ind_ind_42", "fitness": 3.0, "metrics": {"correct_answers": 3, "execution_valids": 6, "syntax_valids": 6, "creating_times": 119.67374181747437, "program_times": 83.68124842643738}}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "CODER_ROBUST", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "ARCHITECT_COMPREHENSIVE", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "CODER_EDUCATIONAL", "type": "default"}]}]}]}]}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "REVIEWER_MAINTAINABILITY", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_REFACTOR", "type": "default"}]}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "COMPLEX_NODE", "type": "default", "children": [{"name": "SIMPLE_CONDITIONAL", "type": "default", "children": [{"name": "IF", "type": "control"}, {"name": "CONDITION", "type": "default", "children": [{"name": "SYNTAX_VALID", "type": "default"}]}, {"name": "THEN", "type": "keyword"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_DEFENSIVE", "type": "default"}]}]}]}, {"name": "ELSE", "type": "keyword"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "ANALYST_ARCHITECTURAL", "type": "default"}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}]}], "individual_name": "ind_ind_21", "fitness": 3.0, "metrics": {"correct_answers": 3, "execution_valids": 6, "syntax_valids": 6, "creating_times": 122.28620672225952, "program_times": 83.71882510185242}}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "ANALYST_ALGORITHMIC", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "CODER_ROBUST", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "ARCHITECT_COMPREHENSIVE", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "CODER_EDUCATIONAL", "type": "default"}]}]}]}]}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "ARCHITECT_COMPREHENSIVE", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "CODER_EDUCATIONAL", "type": "default"}]}]}]}]}]}]}]}, {"name": "->", "type": "condition"}, {"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_COMPREHENSIVE", "type": "default"}]}]}]}]}]}]}, {"name": "->", "type": "condition"}, {"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_COMPREHENSIVE", "type": "default"}]}]}]}]}], "individual_name": "ind_ind_36", "fitness": 3.0, "metrics": {"correct_answers": 3, "execution_valids": 6, "syntax_valids": 6, "creating_times": 244.99043560028076, "program_times": 83.51976037025452}}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "ANALYST_ALGORITHMIC", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "CODER_ROBUST", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "ARCHITECT_COMPREHENSIVE", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "CODER_EDUCATIONAL", "type": "default"}]}]}]}]}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_REFACTOR", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_REFACTOR", "type": "default"}]}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "COMPLEX_NODE", "type": "default", "children": [{"name": "SIMPLE_CONDITIONAL", "type": "default", "children": [{"name": "IF", "type": "control"}, {"name": "CONDITION", "type": "default", "children": [{"name": "SYNTAX_VALID", "type": "default"}]}, {"name": "THEN", "type": "keyword"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_DEFENSIVE", "type": "default"}]}]}]}, {"name": "ELSE", "type": "keyword"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_DEFENSIVE", "type": "default"}]}]}]}]}]}]}]}]}]}]}]}]}, {"name": "->", "type": "condition"}, {"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_COMPREHENSIVE", "type": "default"}]}]}]}]}]}]}, {"name": "->", "type": "condition"}, {"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_COMPREHENSIVE", "type": "default"}]}]}]}]}], "individual_name": "ind_ind_38", "fitness": 3.0, "metrics": {"correct_answers": 3, "execution_valids": 6, "syntax_valids": 6, "creating_times": 246.54527711868286, "program_times": 83.71648597717285}}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "ANALYST_ALGORITHMIC", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "CODER_ROBUST", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "ARCHITECT_COMPREHENSIVE", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "CODER_EDUCATIONAL", "type": "default"}]}]}]}]}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_REFACTOR", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_REFACTOR", "type": "default"}]}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "COMPLEX_NODE", "type": "default", "children": [{"name": "SIMPLE_CONDITIONAL", "type": "default", "children": [{"name": "IF", "type": "control"}, {"name": "CONDITION", "type": "default", "children": [{"name": "SYNTAX_VALID", "type": "default"}]}, {"name": "THEN", "type": "keyword"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_DEFENSIVE", "type": "default"}]}]}]}, {"name": "ELSE", "type": "keyword"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_DEFENSIVE", "type": "default"}]}]}]}]}]}]}]}]}]}]}]}]}, {"name": "->", "type": "condition"}, {"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_COMPREHENSIVE", "type": "default"}]}]}]}]}]}]}, {"name": "->", "type": "condition"}, {"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_COMPREHENSIVE", "type": "default"}]}]}]}]}], "individual_name": "ind_ind_41", "fitness": 3.0, "metrics": {"correct_answers": 3, "execution_valids": 6, "syntax_valids": 6, "creating_times": 247.26495814323425, "program_times": 83.6705973148346}}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "ANALYST_ALGORITHMIC", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "CODER_ROBUST", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "ARCHITECT_COMPREHENSIVE", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "CODER_EDUCATIONAL", "type": "default"}]}]}]}]}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "ARCHITECT_COMPREHENSIVE", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "CODER_EDUCATIONAL", "type": "default"}]}]}]}]}]}]}]}, {"name": "->", "type": "condition"}, {"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_COMPREHENSIVE", "type": "default"}]}]}]}]}]}]}, {"name": "->", "type": "condition"}, {"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_COMPREHENSIVE", "type": "default"}]}]}]}]}], "individual_name": "ind_ind_39", "fitness": 3.0, "metrics": {"correct_answers": 3, "execution_valids": 6, "syntax_valids": 6, "creating_times": 252.4415225982666, "program_times": 83.79155325889587}}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "ANALYST_ALGORITHMIC", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "CODER_ROBUST", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "REVIEWER_QUICK", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "COMPLEX_NODE", "type": "default", "children": [{"name": "SIMPLE_CONDITIONAL", "type": "default", "children": [{"name": "IF", "type": "control"}, {"name": "CONDITION", "type": "default", "children": [{"name": "SYNTAX_VALID", "type": "default"}]}, {"name": "THEN", "type": "keyword"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "ARCHITECT_PERFORMANCE", "type": "default"}]}]}]}, {"name": "ELSE", "type": "keyword"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "REVIEWER_THOROUGH", "type": "default"}]}]}]}]}]}]}]}]}]}, {"name": "->", "type": "condition"}, {"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_COMPREHENSIVE", "type": "default"}]}]}]}]}]}]}, {"name": "->", "type": "condition"}, {"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_COMPREHENSIVE", "type": "default"}]}]}]}]}], "individual_name": "ind_ind_40", "fitness": 3.0, "metrics": {"correct_answers": 3, "execution_valids": 6, "syntax_valids": 6, "creating_times": 255.55551671981812, "program_times": 83.61406207084656}}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "ANALYST_ALGORITHMIC", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "CODER_ROBUST", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "REVIEWER_QUICK", "type": "default"}]}]}, {"name": "->", "type": "condition"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "COMPLEX_NODE", "type": "default", "children": [{"name": "SIMPLE_CONDITIONAL", "type": "default", "children": [{"name": "IF", "type": "control"}, {"name": "CONDITION", "type": "default", "children": [{"name": "SYNTAX_VALID", "type": "default"}]}, {"name": "THEN", "type": "keyword"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "ARCHITECT_PERFORMANCE", "type": "default"}]}]}]}, {"name": "ELSE", "type": "keyword"}, {"name": "WORKFLOW", "type": "workflow", "children": [{"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "REVIEWER_THOROUGH", "type": "default"}]}]}]}]}]}]}]}]}]}, {"name": "->", "type": "condition"}, {"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_COMPREHENSIVE", "type": "default"}]}]}]}]}]}]}, {"name": "->", "type": "condition"}, {"name": "NODE", "type": "default", "children": [{"name": "AGENT", "type": "default", "children": [{"name": "FIXER_COMPREHENSIVE", "type": "default"}]}]}]}]}], "individual_name": "ind_ind_22", "fitness": 3.0, "metrics": {"correct_answers": 3, "execution_valids": 6, "syntax_valids": 6, "creating_times": 257.5974509716034, "program_times": 83.73109984397888}}];
+        const terminalsData = [{"individual_name": "ind_ind_37", "fitness": 3.0, "metrics": {"correct_answers": 3, "execution_valids": 6, "syntax_valids": 6, "creating_times": 115.1214017868042, "program_times": 83.77199530601501}, "nodes": [{"id": 0, "name": "CODER_ROBUST", "type": "agent", "shape": "roundrect"}, {"id": 1, "name": "ARCHITECT_COMPREHENSIVE", "type": "agent", "shape": "roundrect"}, {"id": 2, "name": "CODER_EDUCATIONAL", "type": "agent", "shape": "roundrect"}, {"id": 3, "name": "REVIEWER_MAINTAINABILITY", "type": "agent", "shape": "roundrect"}, {"id": 4, "name": "FIXER_REFACTOR", "type": "agent", "shape": "roundrect"}, {"id": 5, "name": "SYNTAX_VALID?", "type": "condition", "shape": "diamond"}, {"id": 6, "name": "", "type": "merge", "shape": "merge"}, {"id": 7, "name": "ANALYST_ARCHITECTURAL", "type": "agent", "shape": "roundrect"}, {"id": 8, "name": "ANALYST_ARCHITECTURAL", "type": "agent", "shape": "roundrect"}], "edges": [{"source": 0, "target": 1, "label": "", "dashed": false, "loop_back": false}, {"source": 1, "target": 2, "label": "", "dashed": false, "loop_back": false}, {"source": 2, "target": 3, "label": "", "dashed": false, "loop_back": false}, {"source": 3, "target": 4, "label": "", "dashed": false, "loop_back": false}, {"source": 4, "target": 5, "label": "", "dashed": false, "loop_back": false}, {"source": 5, "target": 7, "label": "YES", "dashed": false, "loop_back": false}, {"source": 7, "target": 6, "label": "", "dashed": false, "loop_back": false}, {"source": 5, "target": 8, "label": "NO", "dashed": false, "loop_back": false}, {"source": 8, "target": 6, "label": "", "dashed": false, "loop_back": false}]}, {"individual_name": "ind_ind_35", "fitness": 3.0, "metrics": {"correct_answers": 3, "execution_valids": 6, "syntax_valids": 6, "creating_times": 115.61596918106079, "program_times": 83.62682223320007}, "nodes": [{"id": 0, "name": "CODER_ROBUST", "type": "agent", "shape": "roundrect"}, {"id": 1, "name": "FIXER_REFACTOR", "type": "agent", "shape": "roundrect"}, {"id": 2, "name": "FIXER_REFACTOR", "type": "agent", "shape": "roundrect"}, {"id": 3, "name": "SYNTAX_VALID?", "type": "condition", "shape": "diamond"}, {"id": 4, "name": "", "type": "merge", "shape": "merge"}, {"id": 5, "name": "FIXER_DEFENSIVE", "type": "agent", "shape": "roundrect"}, {"id": 6, "name": "ANALYST_ARCHITECTURAL", "type": "agent", "shape": "roundrect"}, {"id": 7, "name": "REVIEWER_MAINTAINABILITY", "type": "agent", "shape": "roundrect"}, {"id": 8, "name": "FIXER_REFACTOR", "type": "agent", "shape": "roundrect"}, {"id": 9, "name": "SYNTAX_VALID?", "type": "condition", "shape": "diamond"}, {"id": 10, "name": "", "type": "merge", "shape": "merge"}, {"id": 11, "name": "FIXER_DEFENSIVE", "type": "agent", "shape": "roundrect"}, {"id": 12, "name": "ANALYST_ARCHITECTURAL", "type": "agent", "shape": "roundrect"}], "edges": [{"source": 0, "target": 1, "label": "", "dashed": false, "loop_back": false}, {"source": 1, "target": 2, "label": "", "dashed": false, "loop_back": false}, {"source": 2, "target": 3, "label": "", "dashed": false, "loop_back": false}, {"source": 3, "target": 5, "label": "YES", "dashed": false, "loop_back": false}, {"source": 5, "target": 4, "label": "", "dashed": false, "loop_back": false}, {"source": 3, "target": 6, "label": "NO", "dashed": false, "loop_back": false}, {"source": 6, "target": 4, "label": "", "dashed": false, "loop_back": false}, {"source": 4, "target": 7, "label": "", "dashed": false, "loop_back": false}, {"source": 7, "target": 8, "label": "", "dashed": false, "loop_back": false}, {"source": 8, "target": 9, "label": "", "dashed": false, "loop_back": false}, {"source": 9, "target": 11, "label": "YES", "dashed": false, "loop_back": false}, {"source": 11, "target": 10, "label": "", "dashed": false, "loop_back": false}, {"source": 9, "target": 12, "label": "NO", "dashed": false, "loop_back": false}, {"source": 12, "target": 10, "label": "", "dashed": false, "loop_back": false}]}, {"individual_name": "ind_ind_42", "fitness": 3.0, "metrics": {"correct_answers": 3, "execution_valids": 6, "syntax_valids": 6, "creating_times": 119.67374181747437, "program_times": 83.68124842643738}, "nodes": [{"id": 0, "name": "CODER_ROBUST", "type": "agent", "shape": "roundrect"}, {"id": 1, "name": "FIXER_REFACTOR", "type": "agent", "shape": "roundrect"}, {"id": 2, "name": "FIXER_REFACTOR", "type": "agent", "shape": "roundrect"}, {"id": 3, "name": "SYNTAX_VALID?", "type": "condition", "shape": "diamond"}, {"id": 4, "name": "", "type": "merge", "shape": "merge"}, {"id": 5, "name": "FIXER_DEFENSIVE", "type": "agent", "shape": "roundrect"}, {"id": 6, "name": "ANALYST_ARCHITECTURAL", "type": "agent", "shape": "roundrect"}, {"id": 7, "name": "REVIEWER_MAINTAINABILITY", "type": "agent", "shape": "roundrect"}, {"id": 8, "name": "FIXER_REFACTOR", "type": "agent", "shape": "roundrect"}, {"id": 9, "name": "SYNTAX_VALID?", "type": "condition", "shape": "diamond"}, {"id": 10, "name": "", "type": "merge", "shape": "merge"}, {"id": 11, "name": "FIXER_DEFENSIVE", "type": "agent", "shape": "roundrect"}, {"id": 12, "name": "ANALYST_ARCHITECTURAL", "type": "agent", "shape": "roundrect"}], "edges": [{"source": 0, "target": 1, "label": "", "dashed": false, "loop_back": false}, {"source": 1, "target": 2, "label": "", "dashed": false, "loop_back": false}, {"source": 2, "target": 3, "label": "", "dashed": false, "loop_back": false}, {"source": 3, "target": 5, "label": "YES", "dashed": false, "loop_back": false}, {"source": 5, "target": 4, "label": "", "dashed": false, "loop_back": false}, {"source": 3, "target": 6, "label": "NO", "dashed": false, "loop_back": false}, {"source": 6, "target": 4, "label": "", "dashed": false, "loop_back": false}, {"source": 4, "target": 7, "label": "", "dashed": false, "loop_back": false}, {"source": 7, "target": 8, "label": "", "dashed": false, "loop_back": false}, {"source": 8, "target": 9, "label": "", "dashed": false, "loop_back": false}, {"source": 9, "target": 11, "label": "YES", "dashed": false, "loop_back": false}, {"source": 11, "target": 10, "label": "", "dashed": false, "loop_back": false}, {"source": 9, "target": 12, "label": "NO", "dashed": false, "loop_back": false}, {"source": 12, "target": 10, "label": "", "dashed": false, "loop_back": false}]}, {"individual_name": "ind_ind_21", "fitness": 3.0, "metrics": {"correct_answers": 3, "execution_valids": 6, "syntax_valids": 6, "creating_times": 122.28620672225952, "program_times": 83.71882510185242}, "nodes": [{"id": 0, "name": "CODER_ROBUST", "type": "agent", "shape": "roundrect"}, {"id": 1, "name": "ARCHITECT_COMPREHENSIVE", "type": "agent", "shape": "roundrect"}, {"id": 2, "name": "CODER_EDUCATIONAL", "type": "agent", "shape": "roundrect"}, {"id": 3, "name": "REVIEWER_MAINTAINABILITY", "type": "agent", "shape": "roundrect"}, {"id": 4, "name": "FIXER_REFACTOR", "type": "agent", "shape": "roundrect"}, {"id": 5, "name": "SYNTAX_VALID?", "type": "condition", "shape": "diamond"}, {"id": 6, "name": "", "type": "merge", "shape": "merge"}, {"id": 7, "name": "FIXER_DEFENSIVE", "type": "agent", "shape": "roundrect"}, {"id": 8, "name": "ANALYST_ARCHITECTURAL", "type": "agent", "shape": "roundrect"}], "edges": [{"source": 0, "target": 1, "label": "", "dashed": false, "loop_back": false}, {"source": 1, "target": 2, "label": "", "dashed": false, "loop_back": false}, {"source": 2, "target": 3, "label": "", "dashed": false, "loop_back": false}, {"source": 3, "target": 4, "label": "", "dashed": false, "loop_back": false}, {"source": 4, "target": 5, "label": "", "dashed": false, "loop_back": false}, {"source": 5, "target": 7, "label": "YES", "dashed": false, "loop_back": false}, {"source": 7, "target": 6, "label": "", "dashed": false, "loop_back": false}, {"source": 5, "target": 8, "label": "NO", "dashed": false, "loop_back": false}, {"source": 8, "target": 6, "label": "", "dashed": false, "loop_back": false}]}, {"individual_name": "ind_ind_36", "fitness": 3.0, "metrics": {"correct_answers": 3, "execution_valids": 6, "syntax_valids": 6, "creating_times": 244.99043560028076, "program_times": 83.51976037025452}, "nodes": [{"id": 0, "name": "ANALYST_ALGORITHMIC", "type": "agent", "shape": "roundrect"}, {"id": 1, "name": "CODER_ROBUST", "type": "agent", "shape": "roundrect"}, {"id": 2, "name": "ARCHITECT_COMPREHENSIVE", "type": "agent", "shape": "roundrect"}, {"id": 3, "name": "CODER_EDUCATIONAL", "type": "agent", "shape": "roundrect"}, {"id": 4, "name": "ARCHITECT_COMPREHENSIVE", "type": "agent", "shape": "roundrect"}, {"id": 5, "name": "CODER_EDUCATIONAL", "type": "agent", "shape": "roundrect"}, {"id": 6, "name": "FIXER_COMPREHENSIVE", "type": "agent", "shape": "roundrect"}, {"id": 7, "name": "FIXER_COMPREHENSIVE", "type": "agent", "shape": "roundrect"}], "edges": [{"source": 0, "target": 1, "label": "", "dashed": false, "loop_back": false}, {"source": 1, "target": 2, "label": "", "dashed": false, "loop_back": false}, {"source": 2, "target": 3, "label": "", "dashed": false, "loop_back": false}, {"source": 3, "target": 4, "label": "", "dashed": false, "loop_back": false}, {"source": 4, "target": 5, "label": "", "dashed": false, "loop_back": false}, {"source": 5, "target": 6, "label": "", "dashed": false, "loop_back": false}, {"source": 6, "target": 7, "label": "", "dashed": false, "loop_back": false}]}, {"individual_name": "ind_ind_38", "fitness": 3.0, "metrics": {"correct_answers": 3, "execution_valids": 6, "syntax_valids": 6, "creating_times": 246.54527711868286, "program_times": 83.71648597717285}, "nodes": [{"id": 0, "name": "ANALYST_ALGORITHMIC", "type": "agent", "shape": "roundrect"}, {"id": 1, "name": "CODER_ROBUST", "type": "agent", "shape": "roundrect"}, {"id": 2, "name": "ARCHITECT_COMPREHENSIVE", "type": "agent", "shape": "roundrect"}, {"id": 3, "name": "CODER_EDUCATIONAL", "type": "agent", "shape": "roundrect"}, {"id": 4, "name": "FIXER_REFACTOR", "type": "agent", "shape": "roundrect"}, {"id": 5, "name": "FIXER_REFACTOR", "type": "agent", "shape": "roundrect"}, {"id": 6, "name": "SYNTAX_VALID?", "type": "condition", "shape": "diamond"}, {"id": 7, "name": "", "type": "merge", "shape": "merge"}, {"id": 8, "name": "FIXER_DEFENSIVE", "type": "agent", "shape": "roundrect"}, {"id": 9, "name": "FIXER_DEFENSIVE", "type": "agent", "shape": "roundrect"}, {"id": 10, "name": "FIXER_COMPREHENSIVE", "type": "agent", "shape": "roundrect"}, {"id": 11, "name": "FIXER_COMPREHENSIVE", "type": "agent", "shape": "roundrect"}], "edges": [{"source": 0, "target": 1, "label": "", "dashed": false, "loop_back": false}, {"source": 1, "target": 2, "label": "", "dashed": false, "loop_back": false}, {"source": 2, "target": 3, "label": "", "dashed": false, "loop_back": false}, {"source": 3, "target": 4, "label": "", "dashed": false, "loop_back": false}, {"source": 4, "target": 5, "label": "", "dashed": false, "loop_back": false}, {"source": 5, "target": 6, "label": "", "dashed": false, "loop_back": false}, {"source": 6, "target": 8, "label": "YES", "dashed": false, "loop_back": false}, {"source": 8, "target": 7, "label": "", "dashed": false, "loop_back": false}, {"source": 6, "target": 9, "label": "NO", "dashed": false, "loop_back": false}, {"source": 9, "target": 7, "label": "", "dashed": false, "loop_back": false}, {"source": 7, "target": 10, "label": "", "dashed": false, "loop_back": false}, {"source": 10, "target": 11, "label": "", "dashed": false, "loop_back": false}]}, {"individual_name": "ind_ind_41", "fitness": 3.0, "metrics": {"correct_answers": 3, "execution_valids": 6, "syntax_valids": 6, "creating_times": 247.26495814323425, "program_times": 83.6705973148346}, "nodes": [{"id": 0, "name": "ANALYST_ALGORITHMIC", "type": "agent", "shape": "roundrect"}, {"id": 1, "name": "CODER_ROBUST", "type": "agent", "shape": "roundrect"}, {"id": 2, "name": "ARCHITECT_COMPREHENSIVE", "type": "agent", "shape": "roundrect"}, {"id": 3, "name": "CODER_EDUCATIONAL", "type": "agent", "shape": "roundrect"}, {"id": 4, "name": "FIXER_REFACTOR", "type": "agent", "shape": "roundrect"}, {"id": 5, "name": "FIXER_REFACTOR", "type": "agent", "shape": "roundrect"}, {"id": 6, "name": "SYNTAX_VALID?", "type": "condition", "shape": "diamond"}, {"id": 7, "name": "", "type": "merge", "shape": "merge"}, {"id": 8, "name": "FIXER_DEFENSIVE", "type": "agent", "shape": "roundrect"}, {"id": 9, "name": "FIXER_DEFENSIVE", "type": "agent", "shape": "roundrect"}, {"id": 10, "name": "FIXER_COMPREHENSIVE", "type": "agent", "shape": "roundrect"}, {"id": 11, "name": "FIXER_COMPREHENSIVE", "type": "agent", "shape": "roundrect"}], "edges": [{"source": 0, "target": 1, "label": "", "dashed": false, "loop_back": false}, {"source": 1, "target": 2, "label": "", "dashed": false, "loop_back": false}, {"source": 2, "target": 3, "label": "", "dashed": false, "loop_back": false}, {"source": 3, "target": 4, "label": "", "dashed": false, "loop_back": false}, {"source": 4, "target": 5, "label": "", "dashed": false, "loop_back": false}, {"source": 5, "target": 6, "label": "", "dashed": false, "loop_back": false}, {"source": 6, "target": 8, "label": "YES", "dashed": false, "loop_back": false}, {"source": 8, "target": 7, "label": "", "dashed": false, "loop_back": false}, {"source": 6, "target": 9, "label": "NO", "dashed": false, "loop_back": false}, {"source": 9, "target": 7, "label": "", "dashed": false, "loop_back": false}, {"source": 7, "target": 10, "label": "", "dashed": false, "loop_back": false}, {"source": 10, "target": 11, "label": "", "dashed": false, "loop_back": false}]}, {"individual_name": "ind_ind_39", "fitness": 3.0, "metrics": {"correct_answers": 3, "execution_valids": 6, "syntax_valids": 6, "creating_times": 252.4415225982666, "program_times": 83.79155325889587}, "nodes": [{"id": 0, "name": "ANALYST_ALGORITHMIC", "type": "agent", "shape": "roundrect"}, {"id": 1, "name": "CODER_ROBUST", "type": "agent", "shape": "roundrect"}, {"id": 2, "name": "ARCHITECT_COMPREHENSIVE", "type": "agent", "shape": "roundrect"}, {"id": 3, "name": "CODER_EDUCATIONAL", "type": "agent", "shape": "roundrect"}, {"id": 4, "name": "ARCHITECT_COMPREHENSIVE", "type": "agent", "shape": "roundrect"}, {"id": 5, "name": "CODER_EDUCATIONAL", "type": "agent", "shape": "roundrect"}, {"id": 6, "name": "FIXER_COMPREHENSIVE", "type": "agent", "shape": "roundrect"}, {"id": 7, "name": "FIXER_COMPREHENSIVE", "type": "agent", "shape": "roundrect"}], "edges": [{"source": 0, "target": 1, "label": "", "dashed": false, "loop_back": false}, {"source": 1, "target": 2, "label": "", "dashed": false, "loop_back": false}, {"source": 2, "target": 3, "label": "", "dashed": false, "loop_back": false}, {"source": 3, "target": 4, "label": "", "dashed": false, "loop_back": false}, {"source": 4, "target": 5, "label": "", "dashed": false, "loop_back": false}, {"source": 5, "target": 6, "label": "", "dashed": false, "loop_back": false}, {"source": 6, "target": 7, "label": "", "dashed": false, "loop_back": false}]}, {"individual_name": "ind_ind_40", "fitness": 3.0, "metrics": {"correct_answers": 3, "execution_valids": 6, "syntax_valids": 6, "creating_times": 255.55551671981812, "program_times": 83.61406207084656}, "nodes": [{"id": 0, "name": "ANALYST_ALGORITHMIC", "type": "agent", "shape": "roundrect"}, {"id": 1, "name": "CODER_ROBUST", "type": "agent", "shape": "roundrect"}, {"id": 2, "name": "REVIEWER_QUICK", "type": "agent", "shape": "roundrect"}, {"id": 3, "name": "SYNTAX_VALID?", "type": "condition", "shape": "diamond"}, {"id": 4, "name": "", "type": "merge", "shape": "merge"}, {"id": 5, "name": "ARCHITECT_PERFORMANCE", "type": "agent", "shape": "roundrect"}, {"id": 6, "name": "REVIEWER_THOROUGH", "type": "agent", "shape": "roundrect"}, {"id": 7, "name": "FIXER_COMPREHENSIVE", "type": "agent", "shape": "roundrect"}, {"id": 8, "name": "FIXER_COMPREHENSIVE", "type": "agent", "shape": "roundrect"}], "edges": [{"source": 0, "target": 1, "label": "", "dashed": false, "loop_back": false}, {"source": 1, "target": 2, "label": "", "dashed": false, "loop_back": false}, {"source": 2, "target": 3, "label": "", "dashed": false, "loop_back": false}, {"source": 3, "target": 5, "label": "YES", "dashed": false, "loop_back": false}, {"source": 5, "target": 4, "label": "", "dashed": false, "loop_back": false}, {"source": 3, "target": 6, "label": "NO", "dashed": false, "loop_back": false}, {"source": 6, "target": 4, "label": "", "dashed": false, "loop_back": false}, {"source": 4, "target": 7, "label": "", "dashed": false, "loop_back": false}, {"source": 7, "target": 8, "label": "", "dashed": false, "loop_back": false}]}, {"individual_name": "ind_ind_22", "fitness": 3.0, "metrics": {"correct_answers": 3, "execution_valids": 6, "syntax_valids": 6, "creating_times": 257.5974509716034, "program_times": 83.73109984397888}, "nodes": [{"id": 0, "name": "ANALYST_ALGORITHMIC", "type": "agent", "shape": "roundrect"}, {"id": 1, "name": "CODER_ROBUST", "type": "agent", "shape": "roundrect"}, {"id": 2, "name": "REVIEWER_QUICK", "type": "agent", "shape": "roundrect"}, {"id": 3, "name": "SYNTAX_VALID?", "type": "condition", "shape": "diamond"}, {"id": 4, "name": "", "type": "merge", "shape": "merge"}, {"id": 5, "name": "ARCHITECT_PERFORMANCE", "type": "agent", "shape": "roundrect"}, {"id": 6, "name": "REVIEWER_THOROUGH", "type": "agent", "shape": "roundrect"}, {"id": 7, "name": "FIXER_COMPREHENSIVE", "type": "agent", "shape": "roundrect"}, {"id": 8, "name": "FIXER_COMPREHENSIVE", "type": "agent", "shape": "roundrect"}], "edges": [{"source": 0, "target": 1, "label": "", "dashed": false, "loop_back": false}, {"source": 1, "target": 2, "label": "", "dashed": false, "loop_back": false}, {"source": 2, "target": 3, "label": "", "dashed": false, "loop_back": false}, {"source": 3, "target": 5, "label": "YES", "dashed": false, "loop_back": false}, {"source": 5, "target": 4, "label": "", "dashed": false, "loop_back": false}, {"source": 3, "target": 6, "label": "NO", "dashed": false, "loop_back": false}, {"source": 6, "target": 4, "label": "", "dashed": false, "loop_back": false}, {"source": 4, "target": 7, "label": "", "dashed": false, "loop_back": false}, {"source": 7, "target": 8, "label": "", "dashed": false, "loop_back": false}]}];
+        
+        console.log('Loaded', individualsData.length, 'tree individuals');
+        console.log('Loaded', terminalsData.length, 'terminal individuals');
+        
+        const colorMap = {
+            'agent': '#4ade80',
+            'compiler': '#60a5fa',
+            'condition': '#fbbf24',
+            'control': '#a78bfa',
+            'keyword': '#f87171',
+            'workflow': '#e9d5ff',
+            'number': '#cbd5e1',
+            'default': '#d1d5db',
+            'end': '#f87171',
+            'merge': '#9ca3af'
+        };
+        
+        const container = d3.select('#tree-container');
+        const width = container.node().getBoundingClientRect().width;
+        const height = 800;
+        
+        const svg = container.append('svg')
+            .attr('width', width)
+            .attr('height', height);
+        
+        svg.append('defs').append('marker')
+            .attr('id', 'arrowhead')
+            .attr('viewBox', '0 -5 10 10')
+            .attr('refX', 8)
+            .attr('refY', 0)
+            .attr('markerWidth', 6)
+            .attr('markerHeight', 6)
+            .attr('orient', 'auto')
+            .append('path')
+            .attr('d', 'M0,-5L10,0L0,5')
+            .attr('fill', '#6b7280');
+        
+        const g = svg.append('g');
+        
+        const zoom = d3.zoom()
+            .scaleExtent([0.1, 3])
+            .on('zoom', (event) => g.attr('transform', event.transform));
+        
+        svg.call(zoom);
+        
+        const tooltip = d3.select('#tooltip');
+        
+        let currentIndividual = 0;
+        let currentLayout = 'tree';
+        let currentViewMode = 'tree';
+        let currentRoot = null;
+        let nodeId = 0;
+        
+        function updateInfoPanel(data) {
+            const metrics = data.metrics || {};
+            
+            document.getElementById('current-individual').textContent = data.individual_name;
+            
+            document.getElementById('metric-correct').textContent = 
+                `${metrics.correct_answers || 0}/${metrics.execution_valids || 0}`;
+            document.getElementById('metric-valid').textContent = 
+                metrics.execution_valids || '-';
+            document.getElementById('metric-syntax').textContent = 
+                metrics.syntax_valids || '-';
+            document.getElementById('metric-time-create').textContent = 
+                metrics.creating_times ? `${metrics.creating_times.toFixed(3)}s` : '-';
+            document.getElementById('metric-time-exec').textContent = 
+                metrics.program_times ? `${metrics.program_times.toFixed(3)}s` : '-';
+        }
+        
+        function getTreeLayout(data, layout) {
+            const root = d3.hierarchy(data);
+            
+            if (layout === 'tree') {
+                d3.tree().size([height - 100, width - 300])(root);
+            } else if (layout === 'cluster') {
+                d3.cluster().size([height - 100, width - 300])(root);
+            } else if (layout === 'radial') {
+                const radius = Math.min(width, height) / 2 - 100;
+                d3.tree()
+                    .size([2 * Math.PI, radius])
+                    .separation((a, b) => (a.parent == b.parent ? 1 : 2) / a.depth)(root);
+                
+                root.each(d => {
+                    d.x_cart = d.y * Math.cos(d.x - Math.PI / 2);
+                    d.y_cart = d.y * Math.sin(d.x - Math.PI / 2);
+                });
+            }
+            
+            return root;
+        }
+        
+        function updateTreeView(source) {
+            const duration = 750;
+            const nodes = currentRoot.descendants();
+            const links = currentRoot.links();
+            
+            updateInfoPanel(individualsData[currentIndividual]);
+            document.getElementById('node-count').textContent = `Nodes: ${nodes.length}`;
+            document.getElementById('tree-depth').textContent = `Depth: ${currentRoot.height}`;
+            
+            const node = g.selectAll('.node')
+                .data(nodes, d => d.data.id || (d.data.id = ++nodeId));
+            
+            const nodeEnter = node.enter().append('g')
+                .attr('class', 'node')
+                .attr('transform', d => {
+                    if (currentLayout === 'radial') {
+                        return `translate(${source.x_cart || 0},${source.y_cart || 0})`;
+                    }
+                    return `translate(${source.y || 0},${source.x || 0})`;
+                })
+                .on('click', (event, d) => {
+                    if (d.children) {
+                        d._children = d.children;
+                        d.children = null;
+                    } else {
+                        d.children = d._children;
+                        d._children = null;
+                    }
+                    updateTreeView(d);
+                })
+                .on('mouseover', (event, d) => {
+                    tooltip
+                        .style('opacity', 1)
+                        .html(`<strong>${d.data.name}</strong><br>Type: ${d.data.type}<br>Depth: ${d.depth}`)
+                        .style('left', (event.pageX + 10) + 'px')
+                        .style('top', (event.pageY - 10) + 'px');
+                })
+                .on('mouseout', () => tooltip.style('opacity', 0));
+            
+            nodeEnter.append('circle')
+                .attr('r', 8)
+                .style('fill', d => colorMap[d.data.type] || colorMap['default'])
+                .style('stroke', '#333');
+            
+            nodeEnter.append('text')
+                .attr('dy', '.35em')
+                .attr('x', d => d.children || d._children ? -12 : 12)
+                .attr('text-anchor', d => d.children || d._children ? 'end' : 'start')
+                .text(d => d.data.name);
+            
+            const nodeUpdate = nodeEnter.merge(node);
+            
+            nodeUpdate.transition()
+                .duration(duration)
+                .attr('transform', d => {
+                    if (currentLayout === 'radial') {
+                        return `translate(${d.x_cart},${d.y_cart})`;
+                    }
+                    return `translate(${d.y},${d.x})`;
+                });
+            
+            nodeUpdate.select('circle')
+                .style('fill', d => d._children ? '#ff6b6b' : (colorMap[d.data.type] || colorMap['default']));
+            
+            node.exit().transition().duration(duration).remove();
+            
+            const link = g.selectAll('.link')
+                .data(links, d => d.target.data.id);
+            
+            const linkEnter = link.enter().insert('path', 'g')
+                .attr('class', 'link')
+                .attr('d', d => {
+                    const o = {x: source.x, y: source.y};
+                    return diagonal(o, o);
+                });
+            
+            linkEnter.merge(link).transition()
+                .duration(duration)
+                .attr('d', d => {
+                    if (currentLayout === 'radial') {
+                        return `M ${d.source.x_cart} ${d.source.y_cart}
+                                C ${(d.source.x_cart + d.target.x_cart) / 2} ${(d.source.y_cart + d.target.y_cart) / 2},
+                                ${(d.source.x_cart + d.target.x_cart) / 2} ${(d.source.y_cart + d.target.y_cart) / 2},
+                                ${d.target.x_cart} ${d.target.y_cart}`;
+                    }
+                    return diagonal(d.source, d.target);
+                });
+            
+            link.exit().transition().duration(duration).remove();
+            
+            if (source === currentRoot) {
+                const bounds = g.node().getBBox();
+                const scale = 0.8 / Math.max(bounds.width / width, bounds.height / height);
+                const translate = [
+                    width / 2 - scale * (bounds.x + bounds.width / 2),
+                    height / 2 - scale * (bounds.y + bounds.height / 2)
+                ];
+                
+                svg.transition()
+                    .duration(duration)
+                    .call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
+            }
+        }
+        
+        function diagonal(s, d) {
+            return `M ${s.y} ${s.x}
+                    C ${(s.y + d.y) / 2} ${s.x},
+                    ${(s.y + d.y) / 2} ${d.x},
+                    ${d.y} ${d.x}`;
+        }
+        
+        function renderTerminalView() {
+            g.selectAll('*').remove();
+            
+            const data = terminalsData[currentIndividual];
+            const nodes = data.nodes;
+            const edges = data.edges;
+            
+            updateInfoPanel(terminalsData[currentIndividual]);
+            document.getElementById('node-count').textContent = `Nodes: ${nodes.length}`;
+            document.getElementById('tree-depth').textContent = `Edges: ${edges.length}`;
+            
+            const nodeWidth = 140;
+            const nodeHeight = 70;
+            const horizontalGap = 220;
+            const levelHeight = 150;
+            const loopSideOffset = 150;
+            
+            const levels = {};
+            const visited = new Set();
+            const queue = [];
+            
+            const hasIncoming = new Set();
+            edges.forEach(e => {
+                if (!e.loop_back) hasIncoming.add(e.target);
+            });
+            
+            const roots = nodes.filter(n => !hasIncoming.has(n.id) && n.shape !== 'merge');
+            if (roots.length === 0 && nodes.length > 0) roots.push(nodes[0]);
+            
+            roots.forEach(root => {
+                queue.push({id: root.id, level: 0});
+                levels[root.id] = 0;
+            });
+            
+            while (queue.length > 0) {
+                const {id, level} = queue.shift();
+                if (visited.has(id)) continue;
+                visited.add(id);
+                
+                const outgoing = edges.filter(e => e.source === id && !e.loop_back);
+                outgoing.forEach(edge => {
+                    if (!levels.hasOwnProperty(edge.target)) {
+                        levels[edge.target] = level + 1;
+                        queue.push({id: edge.target, level: level + 1});
+                    }
+                });
+            }
+            
+            const nodesByLevel = {};
+            nodes.forEach(node => {
+                const level = levels[node.id] || 0;
+                if (!nodesByLevel[level]) nodesByLevel[level] = [];
+                nodesByLevel[level].push(node);
+            });
+            
+            nodes.forEach(node => {
+                const level = levels[node.id] || 0;
+                const nodesInLevel = nodesByLevel[level];
+                const index = nodesInLevel.indexOf(node);
+                const totalInLevel = nodesInLevel.length;
+                
+                const baseX = width / 2;
+                const offset = (index - (totalInLevel - 1) / 2) * horizontalGap;
+                
+                node.x = baseX + offset;
+                node.y = 100 + level * levelHeight;
+            });
+            
+            edges.forEach(edge => {
+                const source = nodes.find(n => n.id === edge.source);
+                if (!source || edge.loop_back) return;
+                
+                const outgoing = edges.filter(e => e.source === source.id && !e.loop_back);
+                if (outgoing.length === 2 && source.type === 'condition') {
+                    const targets = outgoing.map(e => nodes.find(n => n.id === e.target));
+                    if (targets[0] && targets[1] && targets[0].shape !== 'merge' && targets[1].shape !== 'merge') {
+                        const spreadDistance = horizontalGap * 0.7;
+                        targets[0].x = source.x - spreadDistance;
+                        targets[1].x = source.x + spreadDistance;
+                    }
+                }
+            });
+            
+            edges.forEach(edge => {
+                if (edge.loop_back) {
+                    const loopNode = nodes.find(n => n.id === edge.target);
+                    const bodyEndNode = nodes.find(n => n.id === edge.source);
+                    
+                    if (loopNode && bodyEndNode) {
+                        const loopBodyNodes = [];
+                        const findBodyNodes = (nodeId, visited = new Set()) => {
+                            if (visited.has(nodeId) || nodeId === edge.target) return;
+                            visited.add(nodeId);
+                            
+                            const node = nodes.find(n => n.id === nodeId);
+                            if (node) loopBodyNodes.push(node);
+                            
+                            const outgoing = edges.filter(e => e.source === nodeId && !e.loop_back);
+                            outgoing.forEach(e => findBodyNodes(e.target, visited));
+                        };
+                        
+                        const loopOutgoing = edges.filter(e => e.source === loopNode.id && !e.loop_back);
+                        loopOutgoing.forEach(e => {
+                            if (edges.find(lb => lb.loop_back && lb.source === e.target)) {
+                                findBodyNodes(e.target);
+                            }
+                        });
+                        
+                        loopBodyNodes.forEach(node => {
+                            node.x = loopNode.x + loopSideOffset;
+                        });
+                    }
+                }
+            });
+            
+            nodes.filter(n => n.shape === 'merge').forEach(mergeNode => {
+                const incoming = edges.filter(e => e.target === mergeNode.id);
+                if (incoming.length > 0) {
+                    const sources = incoming.map(e => nodes.find(n => n.id === e.source)).filter(Boolean);
+                    if (sources.length > 0) {
+                        const avgX = sources.reduce((sum, n) => sum + n.x, 0) / sources.length;
+                        mergeNode.x = avgX;
+                        const maxY = Math.max(...sources.map(n => n.y));
+                        mergeNode.y = maxY + 30;
+                    }
+                }
+            });
+            
+            const edgeGroup = g.append('g').attr('class', 'edges');
+            
+            edges.forEach(edge => {
+                const source = nodes.find(n => n.id === edge.source);
+                const target = nodes.find(n => n.id === edge.target);
+                
+                if (!source || !target) return;
+                
+                const getConnectionPoint = (node, side) => {
+                    const isSource = side === 'source';
+                    const isDiamond = node.shape === 'diamond';
+                    const isMerge = node.shape === 'merge';
+                    
+                    if (isMerge) return { x: node.x, y: node.y };
+                    
+                    if (isDiamond) {
+                        const diamondSize = 50;
+                        return {
+                            x: node.x,
+                            y: node.y + (isSource ? diamondSize : -diamondSize)
+                        };
+                    } else {
+                        return {
+                            x: node.x,
+                            y: node.y + (isSource ? nodeHeight/2 : -nodeHeight/2)
+                        };
+                    }
+                };
+                
+                const sourcePoint = getConnectionPoint(source, 'source');
+                const targetPoint = getConnectionPoint(target, 'target');
+                
+                if (edge.loop_back) {
+                    const rightOffset = 80;
+                    
+                    edgeGroup.append('path')
+                        .attr('class', 'terminal-edge dashed')
+                        .attr('d', `
+                            M ${sourcePoint.x} ${sourcePoint.y}
+                            L ${sourcePoint.x + rightOffset} ${sourcePoint.y}
+                            L ${sourcePoint.x + rightOffset} ${targetPoint.y}
+                            L ${targetPoint.x + 50} ${targetPoint.y}
+                            L ${targetPoint.x} ${targetPoint.y}
+                        `);
+                    
+                    if (edge.label) {
+                        edgeGroup.append('text')
+                            .attr('class', 'terminal-edge-label')
+                            .attr('x', sourcePoint.x + rightOffset + 10)
+                            .attr('y', (sourcePoint.y + targetPoint.y) / 2)
+                            .text(edge.label);
+                    }
+                } else {
+                    const isMergeTarget = target.shape === 'merge';
+                    
+                    if (isMergeTarget) {
+                        edgeGroup.append('line')
+                            .attr('class', 'terminal-edge')
+                            .attr('x1', sourcePoint.x)
+                            .attr('y1', sourcePoint.y)
+                            .attr('x2', targetPoint.x)
+                            .attr('y2', targetPoint.y);
+                    } else {
+                        edgeGroup.append('path')
+                            .attr('class', 'terminal-edge')
+                            .attr('d', () => {
+                                const sx = sourcePoint.x;
+                                const sy = sourcePoint.y;
+                                const tx = targetPoint.x;
+                                const ty = targetPoint.y;
+                                const midY = (sy + ty) / 2;
+                                
+                                return `M ${sx} ${sy} 
+                                        C ${sx} ${midY}, ${tx} ${midY}, ${tx} ${ty}`;
+                            });
+                    }
+                    
+                    if (edge.label) {
+                        edgeGroup.append('text')
+                            .attr('class', 'terminal-edge-label')
+                            .attr('x', (sourcePoint.x + targetPoint.x) / 2 + 15)
+                            .attr('y', (sourcePoint.y + targetPoint.y) / 2 - 5)
+                            .text(edge.label);
+                    }
+                }
+            });
+            
+            const nodeGroup = g.append('g').attr('class', 'nodes');
+            
+            nodes.forEach(node => {
+                if (node.shape === 'merge') {
+                    nodeGroup.append('circle')
+                        .attr('cx', node.x)
+                        .attr('cy', node.y)
+                        .attr('r', 4)
+                        .attr('fill', '#333');
+                    return;
+                }
+                
+                const nodeG = nodeGroup.append('g')
+                    .attr('class', 'terminal-node')
+                    .attr('transform', `translate(${node.x},${node.y})`)
+                    .on('mouseover', (event) => {
+                        tooltip
+                            .style('opacity', 1)
+                            .html(`<strong>${node.name}</strong><br>Type: ${node.type}`)
+                            .style('left', (event.pageX + 10) + 'px')
+                            .style('top', (event.pageY - 10) + 'px');
+                    })
+                    .on('mouseout', () => tooltip.style('opacity', 0));
+                
+                const color = colorMap[node.type] || colorMap['default'];
+                
+                if (node.shape === 'diamond') {
+                    const size = 50;
+                    nodeG.append('polygon')
+                        .attr('points', `0,-${size} ${size},0 0,${size} -${size},0`)
+                        .attr('fill', color);
+                    
+                    nodeG.append('text')
+                        .attr('text-anchor', 'middle')
+                        .attr('dy', '0.35em')
+                        .style('font-size', '11px')
+                        .text(node.name);
+                    
+                } else if (node.shape === 'roundrect') {
+                    nodeG.append('rect')
+                        .attr('x', -nodeWidth/2)
+                        .attr('y', -nodeHeight/2)
+                        .attr('width', nodeWidth)
+                        .attr('height', nodeHeight)
+                        .attr('rx', 10)
+                        .attr('ry', 10)
+                        .attr('fill', color);
+                    
+                    nodeG.append('text')
+                        .attr('text-anchor', 'middle')
+                        .attr('dy', '0.35em')
+                        .text(node.name);
+                    
+                } else {
+                    nodeG.append('rect')
+                        .attr('x', -nodeWidth/2)
+                        .attr('y', -nodeHeight/2)
+                        .attr('width', nodeWidth)
+                        .attr('height', nodeHeight)
+                        .attr('rx', 5)
+                        .attr('ry', 5)
+                        .attr('fill', color);
+                    
+                    nodeG.append('text')
+                        .attr('text-anchor', 'middle')
+                        .attr('dy', '0.35em')
+                        .text(node.name);
+                }
+            });
+            
+            const bounds = g.node().getBBox();
+            const scale = 0.85 / Math.max(bounds.width / width, bounds.height / height);
+            const translate = [
+                width / 2 - scale * (bounds.x + bounds.width / 2),
+                height / 2 - scale * (bounds.y + bounds.height / 2)
+            ];
+            
+            svg.transition()
+                .duration(750)
+                .call(zoom.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
+        }
+        
+        function expandAll(d) {
+            if (d._children) {
+                d.children = d._children;
+                d._children = null;
+            }
+            if (d.children) d.children.forEach(expandAll);
+        }
+        
+        function collapseAll(d) {
+            if (d.children) {
+                d._children = d.children;
+                d.children = null;
+                d._children.forEach(collapseAll);
+            }
+        }
+        
+        function switchView(mode) {
+            currentViewMode = mode;
+            
+            if (mode === 'terminal') {
+                document.getElementById('layout-control').style.display = 'none';
+                document.getElementById('expand-all').style.display = 'none';
+                document.getElementById('collapse-all').style.display = 'none';
+                renderTerminalView();
+            } else {
+                document.getElementById('layout-control').style.display = 'flex';
+                document.getElementById('expand-all').style.display = 'block';
+                document.getElementById('collapse-all').style.display = 'block';
+                g.selectAll('*').remove();
+                currentRoot = getTreeLayout(individualsData[currentIndividual], currentLayout);
+                currentRoot.x0 = height / 2;
+                currentRoot.y0 = 0;
+                updateTreeView(currentRoot);
+            }
+        }
+        
+        function switchIndividual(index) {
+            currentIndividual = index;
+            
+            if (currentViewMode === 'terminal') {
+                renderTerminalView();
+            } else {
+                g.selectAll('*').remove();
+                currentRoot = getTreeLayout(individualsData[currentIndividual], currentLayout);
+                currentRoot.x0 = height / 2;
+                currentRoot.y0 = 0;
+                updateTreeView(currentRoot);
+            }
+        }
+        
+        document.getElementById('view-mode').addEventListener('change', 
+            (e) => switchView(e.target.value));
+        
+        document.getElementById('individual-select').addEventListener('change', 
+            (e) => switchIndividual(parseInt(e.target.value)));
+        
+        document.getElementById('layout-select').addEventListener('change', (e) => {
+            currentLayout = e.target.value;
+            g.selectAll('*').remove();
+            currentRoot = getTreeLayout(individualsData[currentIndividual], currentLayout);
+            updateTreeView(currentRoot);
+        });
+        
+        document.getElementById('expand-all').addEventListener('click', () => {
+            if (currentRoot && currentViewMode === 'tree') {
+                expandAll(currentRoot);
+                updateTreeView(currentRoot);
+            }
+        });
+        
+        document.getElementById('collapse-all').addEventListener('click', () => {
+            if (currentRoot && currentViewMode === 'tree') {
+                collapseAll(currentRoot);
+                updateTreeView(currentRoot);
+            }
+        });
+        
+        document.getElementById('reset-zoom').addEventListener('click', () => {
+            svg.transition().duration(750).call(zoom.transform, d3.zoomIdentity);
+        });
+        
+        if (individualsData.length > 0) {
+            currentRoot = getTreeLayout(individualsData[0], currentLayout);
+            currentRoot.x0 = height / 2;
+            currentRoot.y0 = 0;
+            updateTreeView(currentRoot);
+        } else {
+            console.error('No individuals data available!');
+        }
+    </script>
+</body>
+</html>

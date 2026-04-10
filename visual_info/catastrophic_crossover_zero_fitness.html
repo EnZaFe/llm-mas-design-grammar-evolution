@@ -1,0 +1,1677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generation 2 - Crossover Comparison</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .fitness-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .fitness-item {
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-weight: 500;
+            color: white;
+            text-align: left;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+        
+        .fitness-item strong {
+            font-size: 1.1em;
+            display: block;
+            margin-bottom: 5px;
+        }
+        
+        .parent1 { background: #4ade80; }
+        .parent2 { background: #60a5fa; }
+        .child1 { background: #fbbf24; }
+        .child2 { background: #a78bfa; }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            padding: 30px;
+        }
+        
+        .tree-panel {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .tree-panel h2 {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #495057;
+            font-size: 1.3em;
+        }
+        
+        .tree-svg {
+            width: 100%;
+            height: 400px;
+            background: white;
+            border-radius: 8px;
+        }
+        
+        .node circle {
+            stroke-width: 2px;
+            cursor: pointer;
+        }
+        
+        .node.highlighted circle {
+            stroke: #dc2626;
+            stroke-width: 4px;
+            filter: drop-shadow(0 0 8px #dc2626);
+        }
+        
+        .node.in-subtree circle {
+            fill-opacity: 0.8;
+            stroke-width: 3px;
+        }
+        
+        .node text {
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        
+        .link {
+            fill: none;
+            stroke: #6b7280;
+            stroke-width: 2px;
+        }
+        
+        .link.highlighted {
+            stroke: #dc2626;
+            stroke-width: 3px;
+        }
+        
+        .controls {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-top: 2px solid #e9ecef;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧬 Crossover Operation - Generation 2</h1>
+            <p>Visualizing Genetic Recombination</p>
+            
+        <div class="fitness-info">
+            <div class="fitness-item parent1">
+                <strong>P1 (ind_ind_23):</strong><br>
+                C:5/10 | E:5/10 | S:5/10 | T_cre:1453.56s | T_exe:100.37s
+            </div>
+            <div class="fitness-item parent2">
+                <strong>P2 (ind_5):</strong><br>
+                C:5/10 | E:6/10 | S:6/10 | T_cre:1350.69s | T_exe:80.62s
+            </div>
+            <div class="fitness-item child1">
+                <strong>C1 (ind_ind_27):</strong><br>
+                C:0/10 | E:0/10 | S:0/10 | T_cre:35.33s | T_exe:200.00s
+            </div>
+            <div class="fitness-item child2">
+                <strong>C2 (ind_ind_28):</strong><br>
+                C:0/10 | E:0/10 | S:0/10 | T_cre:33.89s | T_exe:200.00s
+            </div>
+        </div>
+    
+        </div>
+        
+        <div class="grid">
+            <div class="tree-panel">
+                <h2 style="color: #4ade80;">🌳 Parent 1 (ind_ind_23)</h2>
+                <svg class="tree-svg" id="parent1-svg"></svg>
+            </div>
+            
+            <div class="tree-panel">
+                <h2 style="color: #60a5fa;">🌳 Parent 2 (ind_5)</h2>
+                <svg class="tree-svg" id="parent2-svg"></svg>
+            </div>
+            
+            <div class="tree-panel">
+                <h2 style="color: #fbbf24;">👶 Child 1 (ind_ind_27)</h2>
+                <svg class="tree-svg" id="child1-svg"></svg>
+            </div>
+            
+            <div class="tree-panel">
+                <h2 style="color: #a78bfa;">👶 Child 2 (ind_ind_28)</h2>
+                <svg class="tree-svg" id="child2-svg"></svg>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button id="animate-crossover">▶️ Animate Crossover</button>
+            <button id="reset-view">🔄 Reset View</button>
+        </div>
+    </div>
+    
+    <script>
+        const treesData = {
+  "parent1": {
+    "name": "WORKFLOW",
+    "highlighted": false,
+    "in_subtree": false,
+    "children": [
+      {
+        "name": "WORKFLOW",
+        "highlighted": false,
+        "in_subtree": false,
+        "children": [
+          {
+            "name": "WORKFLOW",
+            "highlighted": false,
+            "in_subtree": false,
+            "children": [
+              {
+                "name": "NODE",
+                "highlighted": false,
+                "in_subtree": false,
+                "children": [
+                  {
+                    "name": "AGENT",
+                    "highlighted": false,
+                    "in_subtree": false,
+                    "children": [
+                      {
+                        "name": "ARCHITECT_ROBUST",
+                        "highlighted": false,
+                        "in_subtree": false
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "->",
+                "highlighted": false,
+                "in_subtree": false
+              },
+              {
+                "name": "WORKFLOW",
+                "highlighted": false,
+                "in_subtree": false,
+                "children": [
+                  {
+                    "name": "WORKFLOW",
+                    "highlighted": false,
+                    "in_subtree": false,
+                    "children": [
+                      {
+                        "name": "NODE",
+                        "highlighted": false,
+                        "in_subtree": false,
+                        "children": [
+                          {
+                            "name": "AGENT",
+                            "highlighted": false,
+                            "in_subtree": false,
+                            "children": [
+                              {
+                                "name": "ARCHITECT_PERFORMANCE",
+                                "highlighted": false,
+                                "in_subtree": false
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "name": "->",
+                        "highlighted": false,
+                        "in_subtree": false
+                      },
+                      {
+                        "name": "WORKFLOW",
+                        "highlighted": false,
+                        "in_subtree": false,
+                        "children": [
+                          {
+                            "name": "WORKFLOW",
+                            "highlighted": false,
+                            "in_subtree": false,
+                            "children": [
+                              {
+                                "name": "NODE",
+                                "highlighted": false,
+                                "in_subtree": false,
+                                "children": [
+                                  {
+                                    "name": "AGENT",
+                                    "highlighted": false,
+                                    "in_subtree": false,
+                                    "children": [
+                                      {
+                                        "name": "CODER_DETAILED",
+                                        "highlighted": false,
+                                        "in_subtree": false
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "name": "->",
+                            "highlighted": false,
+                            "in_subtree": false
+                          },
+                          {
+                            "name": "NODE",
+                            "highlighted": false,
+                            "in_subtree": false,
+                            "children": [
+                              {
+                                "name": "AGENT",
+                                "highlighted": false,
+                                "in_subtree": false,
+                                "children": [
+                                  {
+                                    "name": "REVIEWER_MAINTAINABILITY",
+                                    "highlighted": false,
+                                    "in_subtree": false
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "->",
+                    "highlighted": false,
+                    "in_subtree": false
+                  },
+                  {
+                    "name": "WORKFLOW",
+                    "highlighted": false,
+                    "in_subtree": false,
+                    "children": [
+                      {
+                        "name": "WORKFLOW",
+                        "highlighted": false,
+                        "in_subtree": false,
+                        "children": [
+                          {
+                            "name": "WORKFLOW",
+                            "highlighted": false,
+                            "in_subtree": false,
+                            "children": [
+                              {
+                                "name": "WORKFLOW",
+                                "highlighted": false,
+                                "in_subtree": false,
+                                "children": [
+                                  {
+                                    "name": "NODE",
+                                    "highlighted": false,
+                                    "in_subtree": false,
+                                    "children": [
+                                      {
+                                        "name": "AGENT",
+                                        "highlighted": false,
+                                        "in_subtree": false,
+                                        "children": [
+                                          {
+                                            "name": "FIXER_DEFENSIVE",
+                                            "highlighted": false,
+                                            "in_subtree": false
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              },
+                              {
+                                "name": "->",
+                                "highlighted": false,
+                                "in_subtree": false
+                              },
+                              {
+                                "name": "WORKFLOW",
+                                "highlighted": false,
+                                "in_subtree": false,
+                                "children": [
+                                  {
+                                    "name": "WORKFLOW",
+                                    "highlighted": false,
+                                    "in_subtree": false,
+                                    "children": [
+                                      {
+                                        "name": "NODE",
+                                        "highlighted": false,
+                                        "in_subtree": false,
+                                        "children": [
+                                          {
+                                            "name": "COMPLEX_NODE",
+                                            "highlighted": false,
+                                            "in_subtree": false,
+                                            "children": [
+                                              {
+                                                "name": "SIMPLE_CONDITIONAL",
+                                                "highlighted": false,
+                                                "in_subtree": false,
+                                                "children": [
+                                                  {
+                                                    "name": "IF",
+                                                    "highlighted": false,
+                                                    "in_subtree": false
+                                                  },
+                                                  {
+                                                    "name": "CONDITION",
+                                                    "highlighted": false,
+                                                    "in_subtree": false,
+                                                    "children": [
+                                                      {
+                                                        "name": "EXECUTION_VALID",
+                                                        "highlighted": false,
+                                                        "in_subtree": false
+                                                      }
+                                                    ]
+                                                  },
+                                                  {
+                                                    "name": "THEN",
+                                                    "highlighted": false,
+                                                    "in_subtree": false
+                                                  },
+                                                  {
+                                                    "name": "WORKFLOW",
+                                                    "highlighted": false,
+                                                    "in_subtree": false,
+                                                    "children": [
+                                                      {
+                                                        "name": "NODE",
+                                                        "highlighted": false,
+                                                        "in_subtree": false,
+                                                        "children": [
+                                                          {
+                                                            "name": "AGENT",
+                                                            "highlighted": true,
+                                                            "in_subtree": true,
+                                                            "children": [
+                                                              {
+                                                                "name": "ANALYST_BRIEF",
+                                                                "highlighted": false,
+                                                                "in_subtree": true
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      }
+                                                    ]
+                                                  },
+                                                  {
+                                                    "name": "ELSE",
+                                                    "highlighted": false,
+                                                    "in_subtree": false
+                                                  },
+                                                  {
+                                                    "name": "WORKFLOW",
+                                                    "highlighted": false,
+                                                    "in_subtree": false,
+                                                    "children": [
+                                                      {
+                                                        "name": "WORKFLOW",
+                                                        "highlighted": false,
+                                                        "in_subtree": false,
+                                                        "children": [
+                                                          {
+                                                            "name": "NODE",
+                                                            "highlighted": false,
+                                                            "in_subtree": false,
+                                                            "children": [
+                                                              {
+                                                                "name": "AGENT",
+                                                                "highlighted": false,
+                                                                "in_subtree": false,
+                                                                "children": [
+                                                                  {
+                                                                    "name": "ARCHITECT_MODULAR",
+                                                                    "highlighted": false,
+                                                                    "in_subtree": false
+                                                                  }
+                                                                ]
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      },
+                                                      {
+                                                        "name": "->",
+                                                        "highlighted": false,
+                                                        "in_subtree": false
+                                                      },
+                                                      {
+                                                        "name": "NODE",
+                                                        "highlighted": false,
+                                                        "in_subtree": false,
+                                                        "children": [
+                                                          {
+                                                            "name": "AGENT",
+                                                            "highlighted": false,
+                                                            "in_subtree": false,
+                                                            "children": [
+                                                              {
+                                                                "name": "REVIEWER_QUICK",
+                                                                "highlighted": false,
+                                                                "in_subtree": false
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      }
+                                                    ]
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "parent2": {
+    "name": "WORKFLOW",
+    "highlighted": false,
+    "in_subtree": false,
+    "children": [
+      {
+        "name": "WORKFLOW",
+        "highlighted": false,
+        "in_subtree": false,
+        "children": [
+          {
+            "name": "WORKFLOW",
+            "highlighted": false,
+            "in_subtree": false,
+            "children": [
+              {
+                "name": "NODE",
+                "highlighted": false,
+                "in_subtree": false,
+                "children": [
+                  {
+                    "name": "AGENT",
+                    "highlighted": false,
+                    "in_subtree": false,
+                    "children": [
+                      {
+                        "name": "ANALYST_ULTRA_BRIEF",
+                        "highlighted": false,
+                        "in_subtree": false
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "->",
+                "highlighted": false,
+                "in_subtree": false
+              },
+              {
+                "name": "WORKFLOW",
+                "highlighted": false,
+                "in_subtree": false,
+                "children": [
+                  {
+                    "name": "WORKFLOW",
+                    "highlighted": false,
+                    "in_subtree": false,
+                    "children": [
+                      {
+                        "name": "NODE",
+                        "highlighted": false,
+                        "in_subtree": false,
+                        "children": [
+                          {
+                            "name": "AGENT",
+                            "highlighted": false,
+                            "in_subtree": false,
+                            "children": [
+                              {
+                                "name": "ARCHITECT_PERFORMANCE",
+                                "highlighted": false,
+                                "in_subtree": false
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "name": "->",
+                        "highlighted": false,
+                        "in_subtree": false
+                      },
+                      {
+                        "name": "WORKFLOW",
+                        "highlighted": false,
+                        "in_subtree": false,
+                        "children": [
+                          {
+                            "name": "WORKFLOW",
+                            "highlighted": false,
+                            "in_subtree": false,
+                            "children": [
+                              {
+                                "name": "NODE",
+                                "highlighted": false,
+                                "in_subtree": false,
+                                "children": [
+                                  {
+                                    "name": "AGENT",
+                                    "highlighted": false,
+                                    "in_subtree": false,
+                                    "children": [
+                                      {
+                                        "name": "CODER_DETAILED",
+                                        "highlighted": false,
+                                        "in_subtree": false
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "name": "->",
+                            "highlighted": false,
+                            "in_subtree": false
+                          },
+                          {
+                            "name": "NODE",
+                            "highlighted": false,
+                            "in_subtree": false,
+                            "children": [
+                              {
+                                "name": "AGENT",
+                                "highlighted": false,
+                                "in_subtree": false,
+                                "children": [
+                                  {
+                                    "name": "REVIEWER_MAINTAINABILITY",
+                                    "highlighted": false,
+                                    "in_subtree": false
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "->",
+                    "highlighted": false,
+                    "in_subtree": false
+                  },
+                  {
+                    "name": "WORKFLOW",
+                    "highlighted": false,
+                    "in_subtree": false,
+                    "children": [
+                      {
+                        "name": "WORKFLOW",
+                        "highlighted": false,
+                        "in_subtree": false,
+                        "children": [
+                          {
+                            "name": "WORKFLOW",
+                            "highlighted": false,
+                            "in_subtree": false,
+                            "children": [
+                              {
+                                "name": "WORKFLOW",
+                                "highlighted": false,
+                                "in_subtree": false,
+                                "children": [
+                                  {
+                                    "name": "NODE",
+                                    "highlighted": false,
+                                    "in_subtree": false,
+                                    "children": [
+                                      {
+                                        "name": "AGENT",
+                                        "highlighted": false,
+                                        "in_subtree": false,
+                                        "children": [
+                                          {
+                                            "name": "FIXER_DEFENSIVE",
+                                            "highlighted": false,
+                                            "in_subtree": false
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              },
+                              {
+                                "name": "->",
+                                "highlighted": false,
+                                "in_subtree": false
+                              },
+                              {
+                                "name": "WORKFLOW",
+                                "highlighted": false,
+                                "in_subtree": false,
+                                "children": [
+                                  {
+                                    "name": "WORKFLOW",
+                                    "highlighted": false,
+                                    "in_subtree": false,
+                                    "children": [
+                                      {
+                                        "name": "NODE",
+                                        "highlighted": false,
+                                        "in_subtree": false,
+                                        "children": [
+                                          {
+                                            "name": "COMPLEX_NODE",
+                                            "highlighted": false,
+                                            "in_subtree": false,
+                                            "children": [
+                                              {
+                                                "name": "SIMPLE_CONDITIONAL",
+                                                "highlighted": false,
+                                                "in_subtree": false,
+                                                "children": [
+                                                  {
+                                                    "name": "IF",
+                                                    "highlighted": false,
+                                                    "in_subtree": false
+                                                  },
+                                                  {
+                                                    "name": "CONDITION",
+                                                    "highlighted": false,
+                                                    "in_subtree": false,
+                                                    "children": [
+                                                      {
+                                                        "name": "EXECUTION_VALID",
+                                                        "highlighted": false,
+                                                        "in_subtree": false
+                                                      }
+                                                    ]
+                                                  },
+                                                  {
+                                                    "name": "THEN",
+                                                    "highlighted": false,
+                                                    "in_subtree": false
+                                                  },
+                                                  {
+                                                    "name": "WORKFLOW",
+                                                    "highlighted": false,
+                                                    "in_subtree": false,
+                                                    "children": [
+                                                      {
+                                                        "name": "NODE",
+                                                        "highlighted": false,
+                                                        "in_subtree": false,
+                                                        "children": [
+                                                          {
+                                                            "name": "AGENT",
+                                                            "highlighted": false,
+                                                            "in_subtree": false,
+                                                            "children": [
+                                                              {
+                                                                "name": "ANALYST_BRIEF",
+                                                                "highlighted": false,
+                                                                "in_subtree": false
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      }
+                                                    ]
+                                                  },
+                                                  {
+                                                    "name": "ELSE",
+                                                    "highlighted": false,
+                                                    "in_subtree": false
+                                                  },
+                                                  {
+                                                    "name": "WORKFLOW",
+                                                    "highlighted": false,
+                                                    "in_subtree": false,
+                                                    "children": [
+                                                      {
+                                                        "name": "WORKFLOW",
+                                                        "highlighted": false,
+                                                        "in_subtree": false,
+                                                        "children": [
+                                                          {
+                                                            "name": "NODE",
+                                                            "highlighted": false,
+                                                            "in_subtree": false,
+                                                            "children": [
+                                                              {
+                                                                "name": "AGENT",
+                                                                "highlighted": false,
+                                                                "in_subtree": false,
+                                                                "children": [
+                                                                  {
+                                                                    "name": "ARCHITECT_MODULAR",
+                                                                    "highlighted": false,
+                                                                    "in_subtree": false
+                                                                  }
+                                                                ]
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      },
+                                                      {
+                                                        "name": "->",
+                                                        "highlighted": false,
+                                                        "in_subtree": false
+                                                      },
+                                                      {
+                                                        "name": "NODE",
+                                                        "highlighted": false,
+                                                        "in_subtree": false,
+                                                        "children": [
+                                                          {
+                                                            "name": "AGENT",
+                                                            "highlighted": true,
+                                                            "in_subtree": true,
+                                                            "children": [
+                                                              {
+                                                                "name": "CODER_DETAILED",
+                                                                "highlighted": false,
+                                                                "in_subtree": true
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      }
+                                                    ]
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "child1": {
+    "name": "WORKFLOW",
+    "highlighted": false,
+    "in_subtree": false,
+    "children": [
+      {
+        "name": "WORKFLOW",
+        "highlighted": false,
+        "in_subtree": false,
+        "children": [
+          {
+            "name": "WORKFLOW",
+            "highlighted": false,
+            "in_subtree": false,
+            "children": [
+              {
+                "name": "NODE",
+                "highlighted": false,
+                "in_subtree": false,
+                "children": [
+                  {
+                    "name": "AGENT",
+                    "highlighted": false,
+                    "in_subtree": false,
+                    "children": [
+                      {
+                        "name": "ARCHITECT_ROBUST",
+                        "highlighted": false,
+                        "in_subtree": false
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "->",
+                "highlighted": false,
+                "in_subtree": false
+              },
+              {
+                "name": "WORKFLOW",
+                "highlighted": false,
+                "in_subtree": false,
+                "children": [
+                  {
+                    "name": "WORKFLOW",
+                    "highlighted": false,
+                    "in_subtree": false,
+                    "children": [
+                      {
+                        "name": "NODE",
+                        "highlighted": false,
+                        "in_subtree": false,
+                        "children": [
+                          {
+                            "name": "AGENT",
+                            "highlighted": false,
+                            "in_subtree": false,
+                            "children": [
+                              {
+                                "name": "ARCHITECT_PERFORMANCE",
+                                "highlighted": false,
+                                "in_subtree": false
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "name": "->",
+                        "highlighted": false,
+                        "in_subtree": false
+                      },
+                      {
+                        "name": "WORKFLOW",
+                        "highlighted": false,
+                        "in_subtree": false,
+                        "children": [
+                          {
+                            "name": "WORKFLOW",
+                            "highlighted": false,
+                            "in_subtree": false,
+                            "children": [
+                              {
+                                "name": "NODE",
+                                "highlighted": false,
+                                "in_subtree": false,
+                                "children": [
+                                  {
+                                    "name": "AGENT",
+                                    "highlighted": false,
+                                    "in_subtree": false,
+                                    "children": [
+                                      {
+                                        "name": "CODER_DETAILED",
+                                        "highlighted": false,
+                                        "in_subtree": false
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "name": "->",
+                            "highlighted": false,
+                            "in_subtree": false
+                          },
+                          {
+                            "name": "NODE",
+                            "highlighted": false,
+                            "in_subtree": false,
+                            "children": [
+                              {
+                                "name": "AGENT",
+                                "highlighted": false,
+                                "in_subtree": false,
+                                "children": [
+                                  {
+                                    "name": "REVIEWER_MAINTAINABILITY",
+                                    "highlighted": false,
+                                    "in_subtree": false
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "->",
+                    "highlighted": false,
+                    "in_subtree": false
+                  },
+                  {
+                    "name": "WORKFLOW",
+                    "highlighted": false,
+                    "in_subtree": false,
+                    "children": [
+                      {
+                        "name": "WORKFLOW",
+                        "highlighted": false,
+                        "in_subtree": false,
+                        "children": [
+                          {
+                            "name": "WORKFLOW",
+                            "highlighted": false,
+                            "in_subtree": false,
+                            "children": [
+                              {
+                                "name": "WORKFLOW",
+                                "highlighted": false,
+                                "in_subtree": false,
+                                "children": [
+                                  {
+                                    "name": "NODE",
+                                    "highlighted": false,
+                                    "in_subtree": false,
+                                    "children": [
+                                      {
+                                        "name": "AGENT",
+                                        "highlighted": false,
+                                        "in_subtree": false,
+                                        "children": [
+                                          {
+                                            "name": "FIXER_DEFENSIVE",
+                                            "highlighted": false,
+                                            "in_subtree": false
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              },
+                              {
+                                "name": "->",
+                                "highlighted": false,
+                                "in_subtree": false
+                              },
+                              {
+                                "name": "WORKFLOW",
+                                "highlighted": false,
+                                "in_subtree": false,
+                                "children": [
+                                  {
+                                    "name": "WORKFLOW",
+                                    "highlighted": false,
+                                    "in_subtree": false,
+                                    "children": [
+                                      {
+                                        "name": "NODE",
+                                        "highlighted": false,
+                                        "in_subtree": false,
+                                        "children": [
+                                          {
+                                            "name": "COMPLEX_NODE",
+                                            "highlighted": false,
+                                            "in_subtree": false,
+                                            "children": [
+                                              {
+                                                "name": "SIMPLE_CONDITIONAL",
+                                                "highlighted": false,
+                                                "in_subtree": false,
+                                                "children": [
+                                                  {
+                                                    "name": "IF",
+                                                    "highlighted": false,
+                                                    "in_subtree": false
+                                                  },
+                                                  {
+                                                    "name": "CONDITION",
+                                                    "highlighted": false,
+                                                    "in_subtree": false,
+                                                    "children": [
+                                                      {
+                                                        "name": "EXECUTION_VALID",
+                                                        "highlighted": false,
+                                                        "in_subtree": false
+                                                      }
+                                                    ]
+                                                  },
+                                                  {
+                                                    "name": "THEN",
+                                                    "highlighted": false,
+                                                    "in_subtree": false
+                                                  },
+                                                  {
+                                                    "name": "WORKFLOW",
+                                                    "highlighted": false,
+                                                    "in_subtree": false,
+                                                    "children": [
+                                                      {
+                                                        "name": "NODE",
+                                                        "highlighted": false,
+                                                        "in_subtree": false,
+                                                        "children": [
+                                                          {
+                                                            "name": "AGENT",
+                                                            "highlighted": true,
+                                                            "in_subtree": true,
+                                                            "children": [
+                                                              {
+                                                                "name": "CODER_DETAILED",
+                                                                "highlighted": false,
+                                                                "in_subtree": true
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      }
+                                                    ]
+                                                  },
+                                                  {
+                                                    "name": "ELSE",
+                                                    "highlighted": false,
+                                                    "in_subtree": false
+                                                  },
+                                                  {
+                                                    "name": "WORKFLOW",
+                                                    "highlighted": false,
+                                                    "in_subtree": false,
+                                                    "children": [
+                                                      {
+                                                        "name": "WORKFLOW",
+                                                        "highlighted": false,
+                                                        "in_subtree": false,
+                                                        "children": [
+                                                          {
+                                                            "name": "NODE",
+                                                            "highlighted": false,
+                                                            "in_subtree": false,
+                                                            "children": [
+                                                              {
+                                                                "name": "AGENT",
+                                                                "highlighted": false,
+                                                                "in_subtree": false,
+                                                                "children": [
+                                                                  {
+                                                                    "name": "ARCHITECT_MODULAR",
+                                                                    "highlighted": false,
+                                                                    "in_subtree": false
+                                                                  }
+                                                                ]
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      },
+                                                      {
+                                                        "name": "->",
+                                                        "highlighted": false,
+                                                        "in_subtree": false
+                                                      },
+                                                      {
+                                                        "name": "NODE",
+                                                        "highlighted": false,
+                                                        "in_subtree": false,
+                                                        "children": [
+                                                          {
+                                                            "name": "AGENT",
+                                                            "highlighted": false,
+                                                            "in_subtree": false,
+                                                            "children": [
+                                                              {
+                                                                "name": "REVIEWER_QUICK",
+                                                                "highlighted": false,
+                                                                "in_subtree": false
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      }
+                                                    ]
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "child2": {
+    "name": "WORKFLOW",
+    "highlighted": false,
+    "in_subtree": false,
+    "children": [
+      {
+        "name": "WORKFLOW",
+        "highlighted": false,
+        "in_subtree": false,
+        "children": [
+          {
+            "name": "WORKFLOW",
+            "highlighted": false,
+            "in_subtree": false,
+            "children": [
+              {
+                "name": "NODE",
+                "highlighted": false,
+                "in_subtree": false,
+                "children": [
+                  {
+                    "name": "AGENT",
+                    "highlighted": false,
+                    "in_subtree": false,
+                    "children": [
+                      {
+                        "name": "ANALYST_ULTRA_BRIEF",
+                        "highlighted": false,
+                        "in_subtree": false
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "->",
+                "highlighted": false,
+                "in_subtree": false
+              },
+              {
+                "name": "WORKFLOW",
+                "highlighted": false,
+                "in_subtree": false,
+                "children": [
+                  {
+                    "name": "WORKFLOW",
+                    "highlighted": false,
+                    "in_subtree": false,
+                    "children": [
+                      {
+                        "name": "NODE",
+                        "highlighted": false,
+                        "in_subtree": false,
+                        "children": [
+                          {
+                            "name": "AGENT",
+                            "highlighted": false,
+                            "in_subtree": false,
+                            "children": [
+                              {
+                                "name": "ARCHITECT_PERFORMANCE",
+                                "highlighted": false,
+                                "in_subtree": false
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "name": "->",
+                        "highlighted": false,
+                        "in_subtree": false
+                      },
+                      {
+                        "name": "WORKFLOW",
+                        "highlighted": false,
+                        "in_subtree": false,
+                        "children": [
+                          {
+                            "name": "WORKFLOW",
+                            "highlighted": false,
+                            "in_subtree": false,
+                            "children": [
+                              {
+                                "name": "NODE",
+                                "highlighted": false,
+                                "in_subtree": false,
+                                "children": [
+                                  {
+                                    "name": "AGENT",
+                                    "highlighted": false,
+                                    "in_subtree": false,
+                                    "children": [
+                                      {
+                                        "name": "CODER_DETAILED",
+                                        "highlighted": false,
+                                        "in_subtree": false
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          },
+                          {
+                            "name": "->",
+                            "highlighted": false,
+                            "in_subtree": false
+                          },
+                          {
+                            "name": "NODE",
+                            "highlighted": false,
+                            "in_subtree": false,
+                            "children": [
+                              {
+                                "name": "AGENT",
+                                "highlighted": false,
+                                "in_subtree": false,
+                                "children": [
+                                  {
+                                    "name": "REVIEWER_MAINTAINABILITY",
+                                    "highlighted": false,
+                                    "in_subtree": false
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "name": "->",
+                    "highlighted": false,
+                    "in_subtree": false
+                  },
+                  {
+                    "name": "WORKFLOW",
+                    "highlighted": false,
+                    "in_subtree": false,
+                    "children": [
+                      {
+                        "name": "WORKFLOW",
+                        "highlighted": false,
+                        "in_subtree": false,
+                        "children": [
+                          {
+                            "name": "WORKFLOW",
+                            "highlighted": false,
+                            "in_subtree": false,
+                            "children": [
+                              {
+                                "name": "WORKFLOW",
+                                "highlighted": false,
+                                "in_subtree": false,
+                                "children": [
+                                  {
+                                    "name": "NODE",
+                                    "highlighted": false,
+                                    "in_subtree": false,
+                                    "children": [
+                                      {
+                                        "name": "AGENT",
+                                        "highlighted": false,
+                                        "in_subtree": false,
+                                        "children": [
+                                          {
+                                            "name": "FIXER_DEFENSIVE",
+                                            "highlighted": false,
+                                            "in_subtree": false
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              },
+                              {
+                                "name": "->",
+                                "highlighted": false,
+                                "in_subtree": false
+                              },
+                              {
+                                "name": "WORKFLOW",
+                                "highlighted": false,
+                                "in_subtree": false,
+                                "children": [
+                                  {
+                                    "name": "WORKFLOW",
+                                    "highlighted": false,
+                                    "in_subtree": false,
+                                    "children": [
+                                      {
+                                        "name": "NODE",
+                                        "highlighted": false,
+                                        "in_subtree": false,
+                                        "children": [
+                                          {
+                                            "name": "COMPLEX_NODE",
+                                            "highlighted": false,
+                                            "in_subtree": false,
+                                            "children": [
+                                              {
+                                                "name": "SIMPLE_CONDITIONAL",
+                                                "highlighted": false,
+                                                "in_subtree": false,
+                                                "children": [
+                                                  {
+                                                    "name": "IF",
+                                                    "highlighted": false,
+                                                    "in_subtree": false
+                                                  },
+                                                  {
+                                                    "name": "CONDITION",
+                                                    "highlighted": false,
+                                                    "in_subtree": false,
+                                                    "children": [
+                                                      {
+                                                        "name": "EXECUTION_VALID",
+                                                        "highlighted": false,
+                                                        "in_subtree": false
+                                                      }
+                                                    ]
+                                                  },
+                                                  {
+                                                    "name": "THEN",
+                                                    "highlighted": false,
+                                                    "in_subtree": false
+                                                  },
+                                                  {
+                                                    "name": "WORKFLOW",
+                                                    "highlighted": false,
+                                                    "in_subtree": false,
+                                                    "children": [
+                                                      {
+                                                        "name": "NODE",
+                                                        "highlighted": false,
+                                                        "in_subtree": false,
+                                                        "children": [
+                                                          {
+                                                            "name": "AGENT",
+                                                            "highlighted": false,
+                                                            "in_subtree": false,
+                                                            "children": [
+                                                              {
+                                                                "name": "ANALYST_BRIEF",
+                                                                "highlighted": false,
+                                                                "in_subtree": false
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      }
+                                                    ]
+                                                  },
+                                                  {
+                                                    "name": "ELSE",
+                                                    "highlighted": false,
+                                                    "in_subtree": false
+                                                  },
+                                                  {
+                                                    "name": "WORKFLOW",
+                                                    "highlighted": false,
+                                                    "in_subtree": false,
+                                                    "children": [
+                                                      {
+                                                        "name": "WORKFLOW",
+                                                        "highlighted": false,
+                                                        "in_subtree": false,
+                                                        "children": [
+                                                          {
+                                                            "name": "NODE",
+                                                            "highlighted": false,
+                                                            "in_subtree": false,
+                                                            "children": [
+                                                              {
+                                                                "name": "AGENT",
+                                                                "highlighted": false,
+                                                                "in_subtree": false,
+                                                                "children": [
+                                                                  {
+                                                                    "name": "ARCHITECT_MODULAR",
+                                                                    "highlighted": false,
+                                                                    "in_subtree": false
+                                                                  }
+                                                                ]
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      },
+                                                      {
+                                                        "name": "->",
+                                                        "highlighted": false,
+                                                        "in_subtree": false
+                                                      },
+                                                      {
+                                                        "name": "NODE",
+                                                        "highlighted": false,
+                                                        "in_subtree": false,
+                                                        "children": [
+                                                          {
+                                                            "name": "AGENT",
+                                                            "highlighted": true,
+                                                            "in_subtree": true,
+                                                            "children": [
+                                                              {
+                                                                "name": "ANALYST_BRIEF",
+                                                                "highlighted": false,
+                                                                "in_subtree": true
+                                                              }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      }
+                                                    ]
+                                                  }
+                                                ]
+                                              }
+                                            ]
+                                          }
+                                        ]
+                                      }
+                                    ]
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+};
+        
+        const colors = {
+            parent1: '#4ade80',
+            parent2: '#60a5fa',
+            child1: '#fbbf24',
+            child2: '#a78bfa'
+        };
+        
+        function renderTree(data, svgId, color) {
+            const svg = d3.select(`#${svgId}`);
+            const width = svg.node().getBoundingClientRect().width;
+            const height = 400;
+            
+            svg.selectAll('*').remove();
+            
+            const g = svg.append('g')
+                .attr('transform', `translate(40, 20)`);
+            
+            const treeLayout = d3.tree()
+                .size([height - 40, width - 80]);
+            
+            const root = d3.hierarchy(data);
+            treeLayout(root);
+            
+            // Links
+            g.selectAll('.link')
+                .data(root.links())
+                .enter()
+                .append('path')
+                .attr('class', d => d.target.data.highlighted ? 'link highlighted' : 'link')
+                .attr('d', d3.linkHorizontal()
+                    .x(d => d.y)
+                    .y(d => d.x));
+            
+            // Nodes
+            const node = g.selectAll('.node')
+                .data(root.descendants())
+                .enter()
+                .append('g')
+                .attr('class', d => {
+                    let classes = 'node';
+                    if (d.data.highlighted) classes += ' highlighted';
+                    if (d.data.in_subtree) classes += ' in-subtree';
+                    return classes;
+                })
+                .attr('transform', d => `translate(${d.y},${d.x})`);
+            
+            node.append('circle')
+                .attr('r', 6)
+                .style('fill', d => {
+                    if (d.data.highlighted) return '#fecaca';
+                    if (d.data.in_subtree) return '#fed7aa';
+                    return color;
+                })
+                .style('stroke', '#333');
+            
+            node.append('text')
+                .attr('dy', '.35em')
+                .attr('x', d => d.children ? -10 : 10)
+                .attr('text-anchor', d => d.children ? 'end' : 'start')
+                .text(d => d.data.name);
+        }
+        
+        // Render all trees
+        renderTree(treesData.parent1, 'parent1-svg', colors.parent1);
+        renderTree(treesData.parent2, 'parent2-svg', colors.parent2);
+        renderTree(treesData.child1, 'child1-svg', colors.child1);
+        renderTree(treesData.child2, 'child2-svg', colors.child2);
+        
+        // Animation (simplified)
+        document.getElementById('animate-crossover').addEventListener('click', () => {
+            const highlighted = document.querySelectorAll('.highlighted, .in-subtree');
+            highlighted.forEach((el, i) => {
+                setTimeout(() => {
+                    el.style.transform = 'scale(1.2)';
+                    setTimeout(() => {
+                        el.style.transform = 'scale(1)';
+                    }, 300);
+                }, i * 100);
+            });
+        });
+        
+        document.getElementById('reset-view').addEventListener('click', () => {
+            renderTree(treesData.parent1, 'parent1-svg', colors.parent1);
+            renderTree(treesData.parent2, 'parent2-svg', colors.parent2);
+            renderTree(treesData.child1, 'child1-svg', colors.child1);
+            renderTree(treesData.child2, 'child2-svg', colors.child2);
+        });
+    </script>
+</body>
+</html>
