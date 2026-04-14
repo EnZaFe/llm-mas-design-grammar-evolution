@@ -1,0 +1,4 @@
+{
+  "id": "basement",
+  "problem": "Given a list of integers, what is the position of the first integer such that the sum of all integers from the start to it inclusive is negative?"
+}
