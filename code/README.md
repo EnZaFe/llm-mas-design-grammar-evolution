@@ -1,6 +1,6 @@
 # Code
 
-This directory contains the source code developed and used throughout the research presented in the companion paper.
+This directory will contain the source code developed and used throughout the research presented in the companion paper.
 
 ## Contents
 
