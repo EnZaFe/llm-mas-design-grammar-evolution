@@ -1,18 +1,23 @@
 # Code
 
-This directory will contain the source code developed and used throughout the research presented in the companion paper.
+This directory contains a simplified implementation of the methods described in the companion paper.
+
+The code is intentionally kept minimal to prioritise clarity and understandability over optimisation or production-level robustness.
 
 ## Contents
 
-- **Grammar-based evolutionary algorithm** — Implementation of the grammar-guided genetic programming (GGP) approach used to automatically design LLM-based multi-agent system (MAS) architectures.
-- **Multi-agent system framework** — Modules for instantiating, configuring, and executing the LLM-based agents and their communication pipelines.
-- **Evaluation scripts** — Scripts for running the evolved architectures on the target benchmarks and computing performance metrics (e.g., pass@k, execution accuracy).
-- **Utilities** — Helper functions for logging, configuration management, and reproducibility (e.g., seed control, result serialisation).
+- **repo gbEA** — A simplified implementation of a grammar-based evolutionary algorithm approach for generating LLM-based multi-agent system (MAS) structures.
+- **repo grammar** — A simplified implementation of the grammar part needed to conduct the algorithm.
+- **repo gen phen mapping** — Basic modules for transforming trees (genotype) to code (phenotype).
 
 ## Requirements
 
-Dependencies and setup instructions are provided in the top-level `requirements.txt` (or equivalent environment file). Python ≥ 3.10 is recommended.
+Dependencies are listed in `requirements.txt`. Python ≥ 3.10 is recommended.
+
+## Notes
+
+This codebase is not optimised and may contain simplifications compared to the system described in the paper. It is intended mainly for transparency, experimentation, and educational purposes.
 
 ## Running Experiments
 
-Refer to the individual module docstrings and the paper for a detailed description of the experimental protocol.
+Refer to the the companion paper for details.
